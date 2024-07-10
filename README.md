@@ -48,6 +48,7 @@ Thanks to the following repos for their codes and datasets.
 
 [https://github.com/laiguokun/multivariate-time-series-data](https://github.com/laiguokun/multivariate-time-series-data)
 
+[https://github.com/alanyoungCN/WaveForM](https://github.com/alanyoungCN/WaveForM
 
 # Wave
 # Wave
