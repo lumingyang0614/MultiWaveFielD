@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-class DishTS(nn.Module):
+#DS_Block 在模型前後面 概念就是做Normal 跟 denormal  但做一些權重調整跟Shift跟scale
+class DS_Block(nn.Module):
     def __init__(self, args):
         super().__init__()
         init = 'uniform' #'standard', 'avg' or 'uniform' etc.
@@ -15,6 +15,8 @@ class DishTS(nn.Module):
         n_series = args.n_points # number of series
         # lookback = 96 # lookback length
         lookback = args.seq_len # lookback length
+
+        #初始化方法 調整
         if init == 'standard':
             self.reduce_mlayer = nn.Parameter(torch.rand(n_series, lookback, 2)/lookback)
         elif init == 'avg':
@@ -35,6 +37,8 @@ class DishTS(nn.Module):
         self.gamma, self.beta = nn.Parameter(torch.ones(n_series)), nn.Parameter(torch.zeros(n_series))
         self.activate = activate
 
+
+    # 分兩塊 前後各一塊 概念都很簡單
     def forward(self, batch_x, mode='forward'):
         if mode == 'forward':
             # batch_x: B*L*D || dec_inp: B*?*D (for xxformers)

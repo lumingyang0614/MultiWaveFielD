@@ -7,6 +7,8 @@ import torch
 import argparse
 import numpy as np
 from .FD import FDNet
+
+# 序列分解成奇偶數
 class Splitting(nn.Module):
     def __init__(self):
         super(Splitting, self).__init__()
@@ -21,7 +23,7 @@ class Splitting(nn.Module):
         '''Returns the odd and even part'''
         return (self.even(x), self.odd(x))
 
-
+# 做奇偶數的交互 互相學習對方沒有的重要資訊
 class Interactor(nn.Module):
     def __init__(self, in_planes, splitting=True,
                  kernel = 3, dropout=0.5, groups = 1, hidden_size = 8, INN = True):
@@ -124,7 +126,7 @@ class Interactor(nn.Module):
 
             return (c, d)
 
-
+# 定義InteractorLevel 這邊不會作多層疊加 沿用而已
 class InteractorLevel(nn.Module):
     def __init__(self, in_planes, kernel, dropout, groups , hidden_size, INN):
         super(InteractorLevel, self).__init__()
@@ -135,22 +137,23 @@ class InteractorLevel(nn.Module):
         (x_even_update, x_odd_update) = self.level(x)
         return (x_even_update, x_odd_update)
 
-class LevelSCINet(nn.Module):
+class LevelDCI(nn.Module):
     def __init__(self,in_planes, kernel_size, dropout, groups, hidden_size, INN):
-        super(LevelSCINet, self).__init__()
+        super(LevelDCI, self).__init__()
         self.interact = InteractorLevel(in_planes= in_planes, kernel = kernel_size, dropout = dropout, groups =groups , hidden_size = hidden_size, INN = INN)
 
     def forward(self, x):
         (x_even_update, x_odd_update) = self.interact(x)
         return x_even_update.permute(0, 2, 1), x_odd_update.permute(0, 2, 1) #even: B, T, D odd: B, T, D
 
+# 這邊主要針對 odd 跟 even 跟 FD 
 class SCINet_Tree(nn.Module):
     def __init__(self, in_planes, current_level, kernel_size, dropout, groups, hidden_size, INN,input_dim):
         super().__init__()
         self.current_level = current_level
 
 
-        self.workingblock = LevelSCINet(
+        self.workingblock = LevelDCI(
             in_planes = in_planes,
             kernel_size = kernel_size,
             dropout = dropout,
@@ -163,6 +166,7 @@ class SCINet_Tree(nn.Module):
             self.SCINet_Tree_odd=SCINet_Tree(in_planes, current_level-1, kernel_size, dropout, groups, hidden_size, INN, input_dim)
             self.SCINet_Tree_even=SCINet_Tree(in_planes, current_level-1, kernel_size, dropout, groups, hidden_size, INN, input_dim)
 
+        # Focal Decompose 的參數輸入
         self.FD = FDNet(
                 # enc_in=321,
                 # c_out=321,
@@ -197,7 +201,8 @@ class SCINet_Tree(nn.Module):
         if odd_len < even_len: 
             _.append(even[-1].unsqueeze(0))
         return torch.cat(_,0).permute(1,0,2) #B, L, D
-        
+    
+    # 將奇偶數的部份 重排這些子序列
     def forward(self, x):
         x_even_update, x_odd_update= self.workingblock(x)
         # x_even_update = self.FD(x_even_update)
@@ -229,11 +234,12 @@ class EncoderTree(nn.Module):
 
         return x
 
-class SCINet(nn.Module):
+#從這邊開始接 主要來自論文 SCINet 的方法 裡面有些內容在方法論上沒有用到 主要是用Interactor 跟 奇偶數拆解
+class DCI_Block(nn.Module):
     def __init__(self, output_len, input_len, input_dim , hid_size = 1, num_stacks = 2,
                 num_levels = 3, num_decoder_layer = 3, concat_len = 0, groups = 1, kernel = 5, dropout = 0.5,
                  single_step_output_One = 0, input_len_seg = 0, positionalE = False, modified = True, RIN=False):
-        super(SCINet, self).__init__()
+        super(DCI_Block, self).__init__()
 
         self.input_dim = input_dim
         self.input_len = input_len
@@ -379,7 +385,7 @@ class SCINet(nn.Module):
             else:
                 x += self.get_position_encoding(x)
 
-        ### activated when RIN flag is set ###
+        # 沒有做多層 stack 跟 RIN
         if self.RIN:
             print('/// RIN ACTIVATED ///\r',end='')
             means = x.mean(1, keepdim=True).detach()
@@ -413,7 +419,7 @@ class SCINet(nn.Module):
                 x = output
             x = self.projection1(x)
             x = x.permute(0,2,1)
-
+        # 沒有做多層 stack 跟 RIN
         if self.stacks == 1:
             ### reverse RIN ###
             if self.RIN:
@@ -476,7 +482,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    model = SCINet(output_len = args.horizon, input_len= args.window_size, input_dim = 9, hid_size = args.hidden_size, num_stacks = 1,
+    model = DCI_Block(output_len = args.horizon, input_len= args.window_size, input_dim = 9, hid_size = args.hidden_size, num_stacks = 1,
                 num_levels = 3, concat_len = 0, groups = args.groups, kernel = args.kernel, dropout = args.dropout,
                  single_step_output_One = args.single_step_output_One, positionalE =  args.positionalEcoding, modified = True).cuda()
     x = torch.randn(32, 96, 9).cuda()

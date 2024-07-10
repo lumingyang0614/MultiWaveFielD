@@ -24,8 +24,8 @@ parser.add_argument("--model_id", type=str, default="solar_96_96", help="model i
 parser.add_argument(
     "--model",
     type=str,
-    default="WaveForM",
-    help="model name, options: [WaveForM]",
+    default="WaveFielD",
+    help="model name, options: [WaveFielD]",
 )
 
 parser.add_argument("--data", type=str, default="custom", help="dataset type")
@@ -84,15 +84,15 @@ parser.add_argument("--subgraph_size", type=int, default=1, help="the subgraph s
 parser.add_argument("--n_gnn_layer", type=int, default=3, help="number of layers in GNN.")
 parser.add_argument("--wavelet_j", type=int, default=3, help="the number of wavelet layer")
 parser.add_argument("--wavelet", type=str, default='haar', help='the wavelet function')
-parser.add_argument('--dish_init', type=str, default='uniform') # standard, 'avg' or 'uniform'
-parser.add_argument('--norm', type=str, default='none') # none, revin, dishts
-parser.add_argument('--seed', type=str, default='4321') # none, revin, dishts
-parser.add_argument('--hiddenDCI', type=int, default='1') # none, revin, dishts
+parser.add_argument('--dish_init', type=str, default='uniform')
+parser.add_argument('--norm', type=str, default='none') 
+parser.add_argument('--seed', type=str, default='4321') 
+parser.add_argument('--hiddenDCI', type=int, default='1') 
 args = parser.parse_args()
 
 torch.manual_seed(args.seed)  # reproducible
 torch.cuda.manual_seed_all(args.seed)
-wandb.init(project="WaveForm_Traffic"+str(args.pred_len), name="All"+args.seed +'_drop_'+str(args.dropout)+'lr'+str(args.learning_rate))
+wandb.init(project="WaveFielD_Traffic"+str(args.pred_len), name="All"+args.seed +'_drop_'+str(args.dropout)+'lr'+str(args.learning_rate))
 
 
 print("Args in experiment:")

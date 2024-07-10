@@ -9,9 +9,11 @@ import numpy as np
 from typing import Optional
 from torch.utils.checkpoint import checkpoint_sequential
 from pytorch_wavelets import DWT1DForward, DWT1DInverse
-from .SCINet_FD import SCINet
+from .DCI_Block import DCI_Block
 from .GP import GPModule
-from .DishTS import DishTS
+from .DS_Block import DS_Block
+
+# WaveForM 對於圖形建立作法
 class GraphConstructor(nn.Module):
     def __init__(
         self, nnodes: int, k: int, dim: int, alpha: float, xd: Optional[int] = None
@@ -66,6 +68,7 @@ class GraphConstructor(nn.Module):
         A = A * mask
         return A
 
+# 模型部份
 class Model(nn.Module):
     def __init__(self, configs):
         super(Model, self).__init__()
@@ -74,7 +77,7 @@ class Model(nn.Module):
         self.points = configs.n_points
         self.dropout = configs.dropout
         self.hiddenDCI = configs.hiddenDCI
-        self.nm = DishTS(configs)
+        self.nm = DS_Block(configs)
         decompose_layer = configs.wavelet_j
         wave = configs.wavelet
         
@@ -101,58 +104,41 @@ class Model(nn.Module):
             dim=configs.node_dim,
             alpha=3.0
         )
-        # self.scinet = SCINet( output_len=configs.pred_len,
-        #         input_len=configs.seq_len,
-        #         input_dim=configs.n_points,
-        #         hid_size=8,
-        #         num_stacks=1,
-        #         num_levels=3,
-        #         num_decoder_layer=1,
-        #         concat_len=0,
-        #         groups=1,
-        #         kernel=5,
-        #         dropout=0,
-        #         single_step_output_One=0,
-        #         positionalE=False,
-        #         modified=True,
-        #         RIN=False)
-        
+        # 對每個分解層 + GPModule模組
         self.nets = nn.ModuleList()
         for i in range(decompose_layer + 1):
             self.nets.append(
                 GPModule(
                     gcn_true = True,
                     build_adj = True,
-                    gcn_depth=2,#ori
-                    # gcn_depth=1,#solar
-                    num_nodes=self.points,
-                    kernel_set=[2, 3, 6, 7],
+                    gcn_depth=2,
+                    num_nodes=self.points,# 節點數量
+                    kernel_set=[2, 3, 6, 7], # Dilate 用
                     kernel_size=7,
                     dropout=self.dropout,
                     conv_channels=32,
                     residual_channels=32,
-                    skip_channels=64,#ori
-                    end_channels=128,#ori
+                    skip_channels=64,
+                    end_channels=128,
                     seq_length=(tmp1_coefs[i].shape[-1]),
                     in_dim=1,
                     out_dim=(tmp2_coefs[i].shape[-1]) - (tmp1_coefs[i].shape[-1]),
                     layers=configs.n_gnn_layer,
-                    propalpha=0.05, #ori
+                    propalpha=0.05, 
                     hiddenDCI = self.hiddenDCI ,
-                    dilation_exponential=2, #ori
+                    dilation_exponential=2, 
                     graph_constructor=self._graph_constructor,
                     layer_norm_affline=True,
                 )
             )
     
-    
+    # 定義，處理輸入的係數
     def model(self, coefs):
 
         new_coefs = []
         for coef, net in zip(coefs, self.nets):
             new_coef = net(coef.permute(0,2,1).unsqueeze(-1))
             a = new_coef.squeeze().permute(0,2,1)
-            # print(a.shape)
             new_coefs.append(new_coef.squeeze().permute(0,2,1))
         
         return new_coefs
@@ -160,11 +146,13 @@ class Model(nn.Module):
 
     
     def forward(self, x_enc):
-        # print(x_enc)
+        # 模型前後會做 DS_Block 
+        # 中間會做 Wavelet(DWT) 的數據分解 每一層都會有 GP 的特徵學習
+        # 最後會做 IDWT 轉回時間序列的數據
         x_enc= self.nm(x_enc, 'forward')
-        # print(x_enc)
+        # x_enc 這時候是torch.Size([batch_size, 96, node])
         in_dwt = x_enc.permute(0,2,1)
-        
+        # x_enc 這時候是torch.Size([batch_size, node, 96])
         yl, yhs = self.dwt(in_dwt)
         coefs = [yl] + yhs
         
@@ -178,9 +166,7 @@ class Model(nn.Module):
         
         out = self.idwt((coefs_idwt[0], coefs_idwt[1:]))
         pred_out = out.permute(0, 2, 1)
-        # print(pred_out)
         pred_out = self.nm(pred_out , 'inverse')
-        # print(pred_out)
         return pred_out[:, -self.pred_len:, :]
 
 

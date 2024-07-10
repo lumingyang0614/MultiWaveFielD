@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from models.ConvBlock import ConvBlock
+from models.DCI_FD_ConvBlock import ConvBlock
 from models.embed import DataEmbedding
 
 
@@ -68,6 +68,7 @@ class FDNet(nn.Module):
         enc_input_list = [enc_input[:, -self.label_len // (2 ** self.pyramid):, :]]
         enc_out = 0
         num_output = 0
+        # 根據金字塔結構構建輸入
         for i in range(self.pyramid):
             enc_input_list.append(enc_input[:, -self.label_len // (2 ** (self.pyramid - i - 1)):
                                                -self.label_len // (2 ** (self.pyramid - i)), :])
