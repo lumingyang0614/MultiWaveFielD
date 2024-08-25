@@ -36,7 +36,7 @@ The running script is `run.sh`, where you can change any arguments which have be
 
 ## Contact
 
-If you have any questions, you can raise an issue or send an e-mail to yfh@bit.edu.cn.
+If you have any questions, you can raise an issue or send an e-mail to lumingyang0614@gmail.com
 
 ## Acknowledgement
 
@@ -49,6 +49,3 @@ Thanks to the following repos for their codes and datasets.
 [https://github.com/laiguokun/multivariate-time-series-data](https://github.com/laiguokun/multivariate-time-series-data)
 
 [https://github.com/alanyoungCN/WaveForM](https://github.com/alanyoungCN/WaveForM
-
-# Wave
-# Wave
