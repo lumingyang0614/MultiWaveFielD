@@ -1,5 +1,5 @@
 # MultiWaveFielD
-
+Multivariate Time Series Forecasting with Wavelet-Based Graph Learning and Focal Decomposed Convolution
 
 ## Requirements
 
